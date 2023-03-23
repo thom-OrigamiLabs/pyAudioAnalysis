@@ -307,6 +307,17 @@ def chroma_features(signal, sampling_rate, num_fft, num_chroma=None, num_freqs_p
     else:
         final_matrix /= spec_sum
 
+    #    ax = plt.gca()
+    #    plt.hold(False)
+    #    plt.plot(finalC)
+    #    ax.set_xticks(range(len(chromaNames)))
+    #    ax.set_xticklabels(chromaNames)
+    #    xaxis = np.arange(0, 0.02, 0.01);
+    #    ax.set_yticks(range(len(xaxis)))
+    #    ax.set_yticklabels(xaxis)
+    #    plt.show(block=False)
+    #    plt.draw()
+
 
     return chroma_names, final_matrix
 
@@ -549,7 +560,6 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
         feature_names (python list):     contains feature names
                                          (n_feats x numOfShortTermWindows)
     """
-    import time
 
     window = int(window)
     step = int(step)
@@ -601,7 +611,6 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
     features = []
     # for each short-term window to end of signal
     while current_position + window - 1 < number_of_samples:
-        times = [time.time()]
         count_fr += 1
         # get current window
         x = signal[current_position:current_position + window]
@@ -634,7 +643,6 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
         [feature_vector[3], feature_vector[4]] = \
             spectral_centroid_spread(fft_magnitude,
                                      sampling_rate)
-        times.append(time.time())
 
         # spectral entropy
         feature_vector[5] = \
