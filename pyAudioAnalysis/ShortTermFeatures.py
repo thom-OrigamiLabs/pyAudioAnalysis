@@ -274,12 +274,14 @@ def chroma_features_init(num_fft, sampling_rate):
     return num_chroma, num_freqs_per_chroma
 
 
-def chroma_features(signal, sampling_rate, num_fft):
+def chroma_features(signal, sampling_rate, num_fft, num_chroma=None, num_freqs_per_chroma=None):
     # TODO: 1 complexity
     # TODO: 2 bug with large windows
 
-    num_chroma, num_freqs_per_chroma = \
-        chroma_features_init(num_fft, sampling_rate)
+    # This can be precalculated
+    if num_chroma is None or num_freqs_per_chroma is None:
+        num_chroma, num_freqs_per_chroma = \
+            chroma_features_init(num_fft, sampling_rate)
     chroma_names = ['A', 'A#', 'B', 'C', 'C#', 'D',
                     'D#', 'E', 'F', 'F#', 'G', 'G#']
     spec = signal ** 2
@@ -297,8 +299,6 @@ def chroma_features(signal, sampling_rate, num_fft):
     C2 = np.zeros((newD,))
     C2[0:C.shape[0]] = C
     C2 = C2.reshape(int(C2.shape[0] / 12), 12)
-    # for i in range(12):
-    #    finalC[i] = np.sum(C[i:C.shape[0]:12])
     final_matrix = np.sum(C2, axis=0).reshape(1, -1).T
 
     spec_sum = spec.sum()
@@ -307,16 +307,6 @@ def chroma_features(signal, sampling_rate, num_fft):
     else:
         final_matrix /= spec_sum
 
-    #    ax = plt.gca()
-    #    plt.hold(False)
-    #    plt.plot(finalC)
-    #    ax.set_xticks(range(len(chromaNames)))
-    #    ax.set_xticklabels(chromaNames)
-    #    xaxis = np.arange(0, 0.02, 0.01);
-    #    ax.set_yticks(range(len(xaxis)))
-    #    ax.set_yticklabels(xaxis)
-    #    plt.show(block=False)
-    #    plt.draw()
 
     return chroma_names, final_matrix
 
@@ -346,6 +336,7 @@ def chromagram(signal, sampling_rate, window, step, plot=False,
     num_fft = int(window / 2)
     chromogram = np.zeros((int((num_samples-step-window) / step) + 1, 12),
                           dtype=np.float64)
+    
     for cur_p in tqdm(range(window, num_samples - step, step),
                       disable=not show_progress):
         count_fr += 1
@@ -448,7 +439,6 @@ def spectrogram(signal, sampling_rate, window, step, plot=False,
         imgplot.set_cmap('jet')
         plt.colorbar()
         plt.show()
-    print(specgram.shape)
     return specgram, time_axis, freq_axis
 
 
@@ -559,6 +549,7 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
         feature_names (python list):     contains feature names
                                          (n_feats x numOfShortTermWindows)
     """
+    import time
 
     window = int(window)
     step = int(step)
@@ -573,6 +564,10 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
     current_position = 0
     count_fr = 0
     num_fft = int(window / 2)
+
+    # initiliase this as it's constant over the for loop
+    num_chroma, num_freqs_per_chroma = \
+        chroma_features_init(num_fft, sampling_rate)
 
     # compute the triangular filter banks used in the mfcc calculation
     fbank, freqs = mfcc_filter_banks(sampling_rate, num_fft)
@@ -606,6 +601,7 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
     features = []
     # for each short-term window to end of signal
     while current_position + window - 1 < number_of_samples:
+        times = [time.time()]
         count_fr += 1
         # get current window
         x = signal[current_position:current_position + window]
@@ -638,6 +634,7 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
         [feature_vector[3], feature_vector[4]] = \
             spectral_centroid_spread(fft_magnitude,
                                      sampling_rate)
+        times.append(time.time())
 
         # spectral entropy
         feature_vector[5] = \
@@ -659,7 +656,7 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
 
         # chroma features
         chroma_names, chroma_feature_matrix = \
-            chroma_features(fft_magnitude, sampling_rate, num_fft)
+            chroma_features(fft_magnitude, sampling_rate, num_fft, num_chroma, num_freqs_per_chroma)
         chroma_features_end = n_time_spectral_feats + n_mfcc_feats + \
                               n_chroma_feats - 1
         feature_vector[mffc_feats_end:chroma_features_end] = \
@@ -683,3 +680,4 @@ def feature_extraction(signal, sampling_rate, window, step, deltas=True):
 
     features = np.concatenate(features, 1)
     return features, feature_names
+
